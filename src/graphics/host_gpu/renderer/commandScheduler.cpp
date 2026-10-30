@@ -376,6 +376,20 @@ uint64_t CommandScheduler::Submit(SubmitInfo submit) {
 	}
 	Common::DebugCounters::Add(Common::DebugCounters::Counter::QueueSubmits);
 
+	if (result == vk::Result::eErrorDeviceLost) {
+		ReportVulkanFatal("vkQueueSubmit", result, tick, m_command.m_debug_op,
+		                  m_command.m_debug_submit_id, m_command.m_debug_arg0,
+		                  m_command.m_debug_arg1, m_command.m_debug_arg2, m_command.m_debug_arg3,
+		                  m_command.m_debug_arg4);
+		LOGF_COLOR(Log::Color::Red,
+		           "GPU device lost (driver reset or TDR) during vkQueueSubmit at tick %" PRIu64 ".\n"
+		           "The GPU driver reset while the emulator was submitting work. This is usually a "
+		           "driver or GPU hang, not a game error. Try updating or rolling back the GPU driver, "
+		           "then restart the emulator.\n",
+		           tick);
+		EXIT("GPU device lost, the emulator cannot continue on this device (tick=%" PRIu64 ")\n",
+		     tick);
+	}
 	if (result != vk::Result::eSuccess) {
 		ReportVulkanFatal("vkQueueSubmit", result, tick, m_command.m_debug_op,
 		                  m_command.m_debug_submit_id, m_command.m_debug_arg0,

@@ -35,6 +35,10 @@ public:
 	static void SleepNano(uint64_t nanos);
 	static bool IsMainThread();
 
+	// Index of the host logical CPU the calling thread is currently running on.
+	// Returns 0 if the platform can't report it.
+	static uint32_t GetCurrentCpu();
+
 	// Get current thread id
 	// Once a thread has finished, the id may be reused by another thread.
 	static std::string GetThreadId();

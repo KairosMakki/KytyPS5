@@ -388,32 +388,40 @@ bool SysFileFlush(sys_file_t& f) {
 	return false;
 }
 
+// Opens a file or directory for metadata queries only (no data access required), so it also
+// works for directories and for files that can't be opened for reading.
+static HANDLE OpenForAttributes(const std::filesystem::path& name) {
+	auto wide = name.wstring();
+	return CreateFileW(wide.c_str(), 0, FILE_SHARE_POSIX, nullptr, OPEN_EXISTING,
+	                   FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+}
+
+static bool GetFileTimesByPath(const std::filesystem::path& name, FILETIME* access,
+                               FILETIME* write) {
+	HANDLE h = OpenForAttributes(name);
+	if (h == INVALID_HANDLE_VALUE) {
+		return false;
+	}
+	const bool ok = (GetFileTime(h, nullptr, access, write) != 0);
+	CloseHandle(h);
+	return ok;
+}
+
 SysFileTimeStruct SysFileGetLastAccessTimeUtc(const std::filesystem::path& name) {
 	SysFileTimeStruct r {};
-	sys_file_t*       f = SysFileOpenR(name);
-	r.is_invalid =
-	    (f->type == SYS_FILE_ERROR || (GetFileTime(f->handle, nullptr, &r.time, nullptr) == 0));
-	SysFileClose(f);
+	r.is_invalid = !GetFileTimesByPath(name, &r.time, nullptr);
 	return r;
 }
 
 SysFileTimeStruct SysFileGetLastWriteTimeUtc(const std::filesystem::path& name) {
 	SysFileTimeStruct r {};
-	sys_file_t*       f = SysFileOpenR(name);
-	r.is_invalid =
-	    (f->type == SYS_FILE_ERROR || (GetFileTime(f->handle, nullptr, nullptr, &r.time) == 0));
-	SysFileClose(f);
+	r.is_invalid = !GetFileTimesByPath(name, nullptr, &r.time);
 	return r;
 }
 
 void SysFileGetLastAccessAndWriteTimeUtc(const std::filesystem::path& name, SysFileTimeStruct& a,
                                          SysFileTimeStruct& w) {
-	// TODO() open file with dwDesiredAccess = 0
-	// TODO() open directory
-	sys_file_t* f = SysFileOpenR(name);
-	a.is_invalid  = w.is_invalid =
-	    (f->type == SYS_FILE_ERROR || (GetFileTime(f->handle, nullptr, &a.time, &w.time) == 0));
-	SysFileClose(f);
+	a.is_invalid = w.is_invalid = !GetFileTimesByPath(name, &a.time, &w.time);
 }
 
 void SysFileGetLastAccessAndWriteTimeUtc(sys_file_t& f, SysFileTimeStruct& a,

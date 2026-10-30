@@ -18,6 +18,10 @@
 #include <string>
 #include <thread>
 
+#if defined(__linux__)
+#include <sched.h>
+#endif
+
 #if KYTY_PLATFORM == KYTY_PLATFORM_WINDOWS
 #include <windows.h> // IWYU pragma: keep
 // IWYU pragma: no_include <winbase.h>
@@ -233,6 +237,17 @@ void Thread::SleepNano(uint64_t nanos) {
 
 bool Thread::IsMainThread() {
 	return g_main_thread == std::this_thread::get_id();
+}
+
+uint32_t Thread::GetCurrentCpu() {
+#if KYTY_PLATFORM == KYTY_PLATFORM_WINDOWS
+	return static_cast<uint32_t>(GetCurrentProcessorNumber());
+#elif defined(__linux__)
+	const int cpu = sched_getcpu();
+	return cpu >= 0 ? static_cast<uint32_t>(cpu) : 0;
+#else
+	return 0;
+#endif
 }
 
 std::string Thread::GetId() const {

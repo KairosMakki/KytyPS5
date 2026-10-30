@@ -1765,16 +1765,22 @@ int KYTY_SYSV_ABI KernelRtldThreadAtexitDecrement(uint64_t* /*c*/) {
 	return 0;
 }
 
+// Number of CPU cores exposed to the guest, and the matching affinity mask.
+static constexpr uint32_t GUEST_CPU_COUNT = 13;
+static constexpr uint64_t GUEST_CPU_MASK  = (1ull << GUEST_CPU_COUNT) - 1;
+
 static uint64_t KYTY_SYSV_ABI KernelGetAvailableCpumask() {
 	PRINT_NAME();
 
-	return 0x1fff;
+	return GUEST_CPU_MASK;
 }
 
 static KYTY_SYSV_ABI int KernelGetCurrentCpu() {
 	PRINT_NAME();
 
-	return 0;
+	// Report the host CPU the thread is running on, folded into the guest's CPU range
+	// so it is always a bit set in KernelGetAvailableCpumask().
+	return static_cast<int>(Common::Thread::GetCurrentCpu() % GUEST_CPU_COUNT);
 }
 
 int KYTY_SYSV_ABI clock_gettime(int clock_id, LibKernel::KernelTimespec* time) {
